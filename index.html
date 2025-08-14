@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AI業力戰助手</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif; margin: 0; padding: 16px; }
+    .wrap { max-width: 880px; margin: 0 auto; }
+    h1 { font-size: 20px; margin: 0 0 12px; }
+    .row { display: flex; gap: 8px; align-items: center; margin: 8px 0; flex-wrap: wrap; }
+    input[type="password"], input[type="text"] { flex: 1; padding: 8px; }
+    textarea { width: 100%; min-height: 120px; padding: 10px; }
+    button { padding: 8px 12px; cursor: pointer; }
+    .out { white-space: pre-wrap; background: #f6f7f9; padding: 12px; border-radius: 8px; min-height: 80px; }
+    .hint { color: #666; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>AI業力戰助手</h1>
+    <div class="hint">系統提示：你現在是業力戰術分析師，需嚴格依據[辛酉金能量守則]回答問題</div>
+
+    <div class="row">
+      <input id="key" type="password" placeholder="粘貼你的 OpenAI API Key（只保存在本瀏覽器）" />
+      <label class="hint"><input id="remember" type="checkbox" /> 記住 Key</label>
+      <button id="save">保存</button>
+      <button id="clear">清除</button>
+    </div>
+
+    <textarea id="q" placeholder="輸入你的問題..."></textarea>
+    <div class="row">
+      <button id="ask">送出</button>
+      <span class="hint">模型：gpt-4o-mini</span>
+    </div>
+
+    <div id="a" class="out">（回覆會顯示在這裡）</div>
+  </div>
+
+  <script>
+    const keyInput = document.getElementById('key');
+    const remember = document.getElementById('remember');
+    const saveBtn = document.getElementById('save');
+    const clearBtn = document.getElementById('clear');
+    const askBtn = document.getElementById('ask');
+    const q = document.getElementById('q');
+    const a = document.getElementById('a');
+
+    const saved = localStorage.getItem('OPENAI_KEY');
+    if (saved) { keyInput.value = saved; remember.checked = true; }
+
+    saveBtn.onclick = () => {
+      if (remember.checked) localStorage.setItem('OPENAI_KEY', keyInput.value.trim());
+      else localStorage.removeItem('OPENAI_KEY');
+      alert('✅ 設定已保存');
+    };
+    clearBtn.onclick = () => { keyInput.value = ''; localStorage.removeItem('OPENAI_KEY'); alert('已清除'); };
+
+    askBtn.onclick = async () => {
+      const API_KEY = keyInput.value.trim();
+      if (!API_KEY) { alert('請先輸入 API Key'); return; }
+      const question = q.value.trim();
+      if (!question) { alert('請先輸入問題'); return; }
+
+      a.textContent = '思考中……';
+      askBtn.disabled = true;
+
+      try {
+        const systemPrompt = "你現在是業力戰術分析師，需嚴格依據[辛酉金能量守則]回答問題";
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${API_KEY}`
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            temperature: 0.7,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: question }
+            ]
+          })
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`HTTP ${res.status} — ${errText}`);
+        }
+        const data = await res.json();
+        a.textContent = data.choices?.[0]?.message?.content || '（沒有回應內容）';
+      } catch (err) {
+        a.textContent = '❌ 出錯：' + err.message + '\n\n可能原因：\n1) API Key 無效或已過期\n2) 帳號未開通/欠費\n3) 網路或瀏覽器阻擋請求';
+      } finally {
+        askBtn.disabled = false;
+      }
+    };
+  </script>
+</body>
+</html>
